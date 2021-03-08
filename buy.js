@@ -25,13 +25,15 @@ async function createMarketOrderAndPlaceTP() {
     const { fills, executedQty } = data;
     console.log(data);
     const price = parseFloat(fills[fills.length - 1].price);
+    const availableQty = executedQty * 0.999;
     console.log(`Kupiono ${executedQty} po cenie ${price}`);
 
     if (data.status === "FILLED") {
       const newPrice = (price * estimatedProfit).toFixed(8);
-      const newQs = `symbol=${symbol}&price=${newPrice}&quantity=${parseFloat(executedQty)}&timeInForce=GTC&side=SELL&type=LIMIT&timestamp=${Date.now()}`;
+      const quantityToSell = availableQty > 100 ? Math.floor(availableQty) : availableQty;
+      const newQs = `symbol=${symbol}&price=${newPrice}&quantity=${parseFloat(quantityToSell)}&timeInForce=GTC&side=SELL&type=LIMIT&timestamp=${Date.now()}`;
       const signature = crypto.createHmac("sha256", secret).update(newQs).digest("hex");
-      console.log(`Próba wwystawienia zlecenia po cenie: ${price}`);
+      console.log(`Próba wwystawienia zlecenia po cenie: ${newPrice}`);
       const res = await fetch(`${url}?${newQs}&signature=${signature}`, {
         method: "post",
         headers: {
