@@ -1,6 +1,6 @@
-require("dotenv").config();
-const fetch = require("node-fetch");
-const crypto = require("crypto");
+require('dotenv').config();
+const fetch = require('node-fetch');
+const crypto = require('crypto');
 
 const url = process.env.URL;
 const apiKey = process.env.APIKEY;
@@ -13,12 +13,12 @@ const symbol = `${ticker}BTC`;
 
 async function createMarketOrderAndPlaceTP() {
   const qs = `symbol=${symbol}&quoteOrderQty=${amount}&side=BUY&type=MARKET&timestamp=${Date.now()}`;
-  const hmac = crypto.createHmac("sha256", secret).update(qs).digest("hex");
+  const hmac = crypto.createHmac('sha256', secret).update(qs).digest('hex');
   try {
     const response = await fetch(`${url}?${qs}&signature=${hmac}`, {
-      method: "post",
+      method: 'post',
       headers: {
-        "X-MBX-APIKEY": apiKey,
+        'X-MBX-APIKEY': apiKey,
       },
     });
     const data = await response.json();
@@ -28,16 +28,18 @@ async function createMarketOrderAndPlaceTP() {
     const availableQty = executedQty * 0.999;
     console.log(`Kupiono ${executedQty} po cenie ${price}`);
 
-    if (data.status === "FILLED") {
-      const newPrice = (price * estimatedProfit).toFixed(8);
+    if (data.status === 'FILLED') {
+      const decimals = countDecimals(price);
+      console.log(decimals);
+      const newPrice = (price * estimatedProfit).toFixed(decimals);
       const quantityToSell = availableQty > 100 ? Math.floor(availableQty) : availableQty;
       const newQs = `symbol=${symbol}&price=${newPrice}&quantity=${parseFloat(quantityToSell)}&timeInForce=GTC&side=SELL&type=LIMIT&timestamp=${Date.now()}`;
-      const signature = crypto.createHmac("sha256", secret).update(newQs).digest("hex");
+      const signature = crypto.createHmac('sha256', secret).update(newQs).digest('hex');
       console.log(`Próba wwystawienia zlecenia po cenie: ${newPrice}`);
       const res = await fetch(`${url}?${newQs}&signature=${signature}`, {
-        method: "post",
+        method: 'post',
         headers: {
-          "X-MBX-APIKEY": apiKey,
+          'X-MBX-APIKEY': apiKey,
         },
       });
       const newData = await res.json();
@@ -50,3 +52,17 @@ async function createMarketOrderAndPlaceTP() {
 }
 
 createMarketOrderAndPlaceTP();
+
+function countDecimals(value) {
+  const text = value.toString();
+  if (text.indexOf('e-') > -1) {
+    const [base, trail] = text.split('e-');
+    const deg = parseInt(trail, 10);
+    return deg;
+  }
+  // count decimals for number in representation like "0.123456"
+  if (Math.floor(value) !== value) {
+    return value.toString().split('.')[1].length || 0;
+  }
+  return 0;
+}
